@@ -1,0 +1,49 @@
+digraph notification_service {
+    rankdir=TB;
+    graph [fontname="Helvetica", bgcolor="white", pad=0.3, nodesep=0.4, ranksep=0.65];
+    node [fontname="Helvetica", fontsize=11, style="filled", shape="box"];
+    edge [fontname="Helvetica", fontsize=9, color="#555555"];
+
+    Caller [label="Internal\nServices", shape=box, style="rounded,filled", fillcolor="#eef1f5", color="#8a94a6"];
+    API [label="Notification API\n(idempotency key)", shape=box, style="rounded,filled", fillcolor="#dbe7ff", color="#5a7fc4"];
+    Dedup [label="Dedup Check", shape=cylinder, fillcolor="#f4e8d0", color="#b8944a"];
+    Pref [label="Preferences &\nQuiet Hours", shape=box, style="rounded,filled", fillcolor="#dbe7ff", color="#5a7fc4"];
+    Router [label="Priority\nRouter", shape=diamond, fillcolor="#fdf1cf", color="#b8944a", fontsize=10];
+
+    TQueue [label="Transactional Queue", shape=box, style="rounded,filled", fillcolor="#dff0e0", color="#5fa876"];
+    BQueue [label="Bulk Queue", shape=box, style="rounded,filled", fillcolor="#f6dede", color="#c4746f"];
+    TWorkers [label="Transactional\nWorkers", shape=box, style="rounded,filled", fillcolor="#dff0e0", color="#5fa876"];
+    BWorkers [label="Bulk\nWorkers", shape=box, style="rounded,filled", fillcolor="#f6dede", color="#c4746f"];
+
+    Dispatch [label="Channel\nDispatcher", shape=box, style="rounded,filled", fillcolor="#dbe7ff", color="#5a7fc4"];
+    Email [label="Email adapter", shape=box, style="rounded,filled", fillcolor="#e8e2f5", color="#8a6fc4"];
+    SMS [label="SMS adapter", shape=box, style="rounded,filled", fillcolor="#e8e2f5", color="#8a6fc4"];
+    Push [label="Push adapter", shape=box, style="rounded,filled", fillcolor="#e8e2f5", color="#8a6fc4"];
+    Providers [label="Email / SMS / Push\nProviders", shape=box, style="rounded,filled", fillcolor="#eef1f5", color="#8a94a6"];
+
+    Status [label="Status\nTracker", shape=box, style="rounded,filled", fillcolor="#dbe7ff", color="#5a7fc4"];
+    DB [label="Notifications DB", shape=cylinder, fillcolor="#f4e8d0", color="#b8944a"];
+    Retry [label="Retry\nScheduler", shape=box, style="rounded,filled", fillcolor="#fdf1cf", color="#b8944a"];
+    DLQ [label="Dead-Letter\nQueue", shape=box, style="rounded,filled", fillcolor="#f6dede", color="#c4746f"];
+
+    {rank=same; TQueue; BQueue;}
+    {rank=same; TWorkers; BWorkers;}
+    {rank=same; Email; SMS; Push;}
+    {rank=same; Status; Retry;}
+
+    Caller -> API -> Dedup -> Pref -> Router;
+    Router -> TQueue [label=" transactional"];
+    Router -> BQueue [label=" bulk"];
+    TQueue -> TWorkers -> Dispatch;
+    BQueue -> BWorkers -> Dispatch;
+    Dispatch -> Email;
+    Dispatch -> SMS;
+    Dispatch -> Push;
+    Email -> Providers;
+    SMS -> Providers;
+    Push -> Providers;
+    Providers -> Status [label=" result / webhook", style="dashed"];
+    Status -> DB [label=" persist"];
+    Status -> Retry [label=" retryable failure"];
+    Retry -> DLQ [label=" attempts exhausted"];
+}
